@@ -72,7 +72,7 @@ get_model4_estimates <- function(posterior){
 
 prep_fp_diamonds_mod1 <- function(){
   ####model label
-  mod <- readRDS('./public_results/model_output/spectrum_estimates_CI.RDS')
+  mod <- readRDS('./model_output/spectrum_estimates_CI.RDS')
   mod <- mod[model == 'model1']
   mod[,studlab := 'Modelled: 2024']
   mod[,label := studlab]
@@ -180,7 +180,7 @@ prep_files <- function(pjnz){
 }
 
 prep_spectrum_format <- function(){
-  spec_estimates <- readRDS('./public_results/model_output/spectrum_estimates.RDS')
+  spec_estimates <- readRDS('./model_output/spectrum_estimates.RDS')
   spec_estimates <- spec_estimates[,.(type, variable, value = plogis(median))]
   
   mtct <- array(data = NA, dim = c(8,2), dimnames = list(cd4 = c('>500', '350-500', '250-349', '200-249', '100-199', '50-99', '<50', 'INFECTION'),
@@ -222,12 +222,12 @@ prep_spectrum_format <- function(){
   pmtct_mtct[,'ART >4 weeks before delivery','bf'] <- spec_estimates[type == 'bf' & variable == 'startart',value]
   pmtct_mtct[,'ART <4 weeks before delivery','bf'] <- spec_estimates[type == 'bf' & variable == 'startart',value]
   
-  saveRDS(list(pmtct_mtct = pmtct_mtct, mtct = mtct), './public_results/spectrum_files/updated_parms.RDS')
+  saveRDS(list(pmtct_mtct = pmtct_mtct, mtct = mtct), './spectrum_files/updated_parms.RDS')
 }
 
 get_stacked_bar_outputs <- function(pjnz){
-  parameters <- readRDS(paste0('./public_results/spectrum_files//proj/', eppasm::read_country(pjnz), '.RDS'))
-  demp <- readRDS(paste0('./public_results/spectrum_files/demp/', eppasm::read_country(pjnz), '.RDS'))
+  parameters <- readRDS(paste0('./spectrum_files//proj/', eppasm::read_country(pjnz), '.RDS'))
+  demp <- readRDS(paste0('./spectrum_files/demp/', eppasm::read_country(pjnz), '.RDS'))
   country <- eppasm::read_country(pjnz)
   
   out <- run_model(demp, parameters, 1970:2023, NULL, run_child_model = TRUE)
@@ -267,7 +267,7 @@ get_stacked_bar_outputs <- function(pjnz){
   strat[,run := 'Former VT']
   default <- copy(strat)
   
-  new_parms <- readRDS(paste0('./public_results/spectrum_files/updated_parms.RDS'))
+  new_parms <- readRDS(paste0('./spectrum_files/updated_parms.RDS'))
   parameters$mtct <- new_parms$mtct
   parameters$pmtct_mtct <-  new_parms$pmtct_mtct
   
@@ -296,12 +296,12 @@ get_stacked_bar_outputs <- function(pjnz){
   strat <- rbind(strat, default)
   strat <- merge(strat, an_inf, by = 'year')
   
-  write.csv(strat, paste0('./public_results/spectrum_files/spectrum_format/inf_diff/', country,'.csv'),row.names = F)
+  write.csv(strat, paste0('./spectrum_files/spectrum_format/inf_diff/', country,'.csv'),row.names = F)
   
 }
 
 plot_country_results <- function(country, year.x){
-  strat <- fread(paste0('./public_results/spectrum_files/spectrum_format/inf_diff/', country,'.csv'))
+  strat <- fread(paste0('./spectrum_files/spectrum_format/inf_diff/', country,'.csv'))
   
   dt <- strat[year == year.x]
   dt[value < 0 ,value := 0]
@@ -365,12 +365,470 @@ plot_country_results <- function(country, year.x){
   
   
   
-  png(paste0('./public_results/figures_tables/appendix/spec_stacked_bar/', country, '_', year.x, '.png'), width = 6, height = 3.5, units = 'in', res = 900)
+  png(paste0('./figures_tables/appendix/spec_stacked_bar/', country, '_', year.x, '.png'), width = 6, height = 3.5, units = 'in', res = 900)
   print(gg)
   dev.off()
 }
 
-get_level_2_plot <- function(dt_in, level_2_in){
+format_spectrum_mtct <- function(spec_estimates){
+  mtct_format <- array(data = NA, dim = c(8,2), dimnames = list(cd4 = c(">500", "350-500", 
+                                                                        "250-349", "200-249",
+                                                                        "100-199",   "50-99",    
+                                                                        "<50", "INFECTION"),
+                                                                trans_type = c('perinatal', 'bf')))
+  
+  mtct_format[c('>500', '350-500'),'perinatal'] <- spec_estimates[type == 'peri' & variable == 500, median]
+  mtct_format[c('250-349', '200-249'),'perinatal'] <- spec_estimates[type == 'peri' & variable == 275, median]
+  mtct_format[c('100-199', '50-99', '<50'),'perinatal'] <- spec_estimates[type == 'peri' & variable == 100, median]
+  mtct_format[c('INFECTION'),'perinatal'] <- spec_estimates[type == 'peri' & variable == 'mat_sero', median]
+  
+  mtct_format[c('>500', '350-500'),'bf'] <- spec_estimates[type != 'peri' & variable == 500, median]
+  mtct_format[c('250-349', '200-249'),'bf'] <- spec_estimates[type != 'peri' & variable == 275, median]
+  mtct_format[c('100-199', '50-99', '<50'),'bf'] <- spec_estimates[type != 'peri' & variable == 100, median]
+  mtct_format[c('INFECTION'),'bf'] <- spec_estimates[type != 'peri' & variable == 'mat_sero', median]
+  
+  pmtct_format <- array(data = NA, dim = c(7,7,2), dimnames = list(cd4 = c(">500", "350-500", 
+                                                                           "250-349", "200-249",
+                                                                           "100-199",   "50-99",    
+                                                                           "<50"),
+                                                                   pmtct_reg = c("option A", "option B",                    
+                                                                                 "single dose nevirapine",
+                                                                                 "WHO 2006 dual ARV regimen",
+                                                                                 "ART before pregnancy",
+                                                                                 "ART >4 weeks before delivery",
+                                                                                 "ART <4 weeks before delivery"),
+                                                                   transmission_type = c('perinatal', 'bf')))
+  pmtct_format[,'option A','perinatal'] <- spec_estimates[type == 'peri' & variable == 'opt_a',median]
+  pmtct_format[,'option A','bf'] <- spec_estimates[type != 'peri' & variable == 'opt_a',median]
+  pmtct_format[,'option B','perinatal'] <- spec_estimates[type == 'peri' & variable == 'opt_b',median]
+  pmtct_format[,'option B','bf'] <- spec_estimates[type != 'peri' & variable == 'opt_b',median]
+  pmtct_format[,'WHO 2006 dual ARV regimen','perinatal'] <- spec_estimates[type == 'peri' & variable == 'dual_arv',median]
+  pmtct_format[,'WHO 2006 dual ARV regimen','bf'] <- spec_estimates[type != 'peri' & variable == 'dual_arv',median]
+  pmtct_format[,'single dose nevirapine','perinatal'] <- spec_estimates[type == 'peri' & variable == 'sdnvp',median]
+  pmtct_format[c('>500', '350-500'),'single dose nevirapine','bf'] <- spec_estimates[type != 'peri' & variable == 'sdnvp_gte350',median]
+  pmtct_format[c('250-349', '200-249', '100-199', '50-99', '<50'),'single dose nevirapine','bf'] <- spec_estimates[type != 'peri' & variable == 'sdnvp_lte350',median]
+  pmtct_format[,'ART before pregnancy','perinatal'] <- spec_estimates[type == 'peri' & variable == '40',median]
+  pmtct_format[,'ART before pregnancy','bf'] <- spec_estimates[type != 'peri' & variable == 'onart',median]
+  pmtct_format[,'ART >4 weeks before delivery','perinatal'] <- spec_estimates[type == 'peri' & variable == '20',median]
+  pmtct_format[,'ART >4 weeks before delivery','bf'] <- spec_estimates[type != 'peri' & variable == 'startart',median]
+  pmtct_format[,'ART <4 weeks before delivery','perinatal'] <- spec_estimates[type == 'peri' & variable == '2',median]
+  pmtct_format[,'ART <4 weeks before delivery','bf'] <- spec_estimates[type != 'peri' & variable == 'startart',median]
+  
+  return(list(mtct = mtct_format, pmtct_mtct = pmtct_format))
+  
+}
+
+get_diamond <- function(){
+  dt <- readRDS('./model_output/estimate_draws.RDS')
+  dt <- dt[variable == 100,cd4_factor := 'A']
+  dt <- dt[variable == 275,cd4_factor := 'B']
+  dt <- dt[variable == 500,cd4_factor := 'C']
+  dt <- dt[variable == 'mat_sero',cd4_factor := 'D']
+  dt <- dt[variable == 'dual_arv',cd4_factor := 'K']
+  dt <- dt[variable == 'opt_a',cd4_factor := 'I']
+  dt <- dt[variable == 'opt_b',cd4_factor := 'H']
+  dt <- dt[variable == 'sdnvp',cd4_factor := 'J']
+  dt <- dt[variable == 'sdnvp_gte350',cd4_factor := 'L']
+  dt <- dt[variable == 'sdnvp_lte350',cd4_factor := 'M']
+  dt <- dt[variable == 2 & model == 'model3',cd4_factor := 'E']
+  dt <- dt[variable == 20& model == 'model3',cd4_factor := 'F']
+  dt <- dt[variable == 40& model == 'model3',cd4_factor := 'G']
+  dt <- dt[variable == 'onart',cd4_factor := 'G']
+  dt <- dt[variable == 'startart',cd4_factor := 'F']
+  setnames(dt, 'type', 'tt')
+  dt[,study_label := 'Modelled: Updated']
+  dt[,type := paste0(cd4_factor, '_', ifelse(tt == 'peri', 1, 2))]
+  dt <- dt[!is.na(cd4_factor)]
+  dt[,median := quantile(value, 0.5), by = 'type']
+  dt[,lower := quantile(value, 0.025), by = 'type']
+  dt[,upper := quantile(value, 0.975), by = 'type']
+  dt <- dt[!(model == 'model1' & cd4_factor == 'E')]
+  dt <- dt[!(model == 'model1' & cd4_factor == 'F')]
+  dt <- dt[!(model == 'model1' & cd4_factor == 'G')]
+  
+  
+  data <- fread(paste0(input_data_dir,'/public_data.csv'))
+  data[,type := paste0(cd4_factor, '_', ifelse(tt == 'peri', 1, 2))]
+  data_wa <- data[,.(model, cd4_factor, tt, type, med = weighted.mean(prop_infected, n.e), sum_n = sum(n.e)), by = 'type']
+  data_wa <- unique(data_wa)
+  confint <- DescTools::BinomCI(data_wa$med * data_wa$sum_n, n = data_wa$sum_n,  method = 'wilson')
+  data_wa[,lower := as.vector(confint[,2])]
+  data_wa[,upper:=  as.vector(confint[,3])]
+  data_wa[lower < 0 ,lower := 0]
+  data_wa[,study_label := 'Weighted average: Updated']
+  
+  data_default <- fread(paste0(input_data_dir, '/default_values_public.csv'))
+  data_default[,tt := ifelse(tt == 'peri', 1, 2)]
+  data_default <- data_default[,.(model,
+                                  med = weighted.mean(event.e / n.e, n.e), 
+                                  sum_n = sum(n.e), type = paste0(cd4_factor, '_', tt)), by = c('tt', 'cd4_factor')]
+  data_default <- unique(data_default[!is.na(tt),.(model, tt, type, cd4_factor, med, sum_n)])
+  data_default[,study_label := 'Weighted average: Former']
+  confint <- DescTools::BinomCI(data_default$med * data_default$sum_n, n = data_default$sum_n,  method = 'wilson')
+  data_default[,lower := as.vector(confint[,2])]
+  data_default[,upper:= as.vector(confint[,3])]
+  data_default_wa <- data_default
+  
+  ##for model 1 we do median default rather than the modelled default
+  data_default <- fread(paste0(input_data_dir, '/default_values_public.csv'))
+  data_default[,tt := ifelse(tt == 'peri', 1, 2)]
+  data_default <- data_default[model== 'model1']
+  data_default[,prop := event.e / n.e]
+  data_default[is.na(n.e), prop := event.e] ## fix for c2
+  data_default <- unique(data_default[,.(model, median = median(prop)), by = c('tt', 'cd4_factor')])
+  data_default[,type := paste0(cd4_factor, '_', tt)]
+  
+  modelled_default <- readRDS('./model_output/old_estimate_draws.RDS')
+  modelled_default <- modelled_default[variable == 100,cd4_factor := 'A']
+  modelled_default <- modelled_default[variable == 275,cd4_factor := 'B']
+  modelled_default <- modelled_default[variable == 500,cd4_factor := 'C']
+  modelled_default <- modelled_default[variable == 'mat_sero',cd4_factor := 'D']
+  modelled_default <- modelled_default[variable == 'dual_arv',cd4_factor := 'K']
+  modelled_default <- modelled_default[variable == 'opt_a',cd4_factor := 'I']
+  modelled_default <- modelled_default[variable == 'opt_b',cd4_factor := 'H']
+  modelled_default <- modelled_default[variable == 'sdnvp',cd4_factor := 'J']
+  modelled_default <- modelled_default[variable == 'sdnvp_gte350',cd4_factor := 'L']
+  modelled_default <- modelled_default[variable == 'sdnvp_lte350',cd4_factor := 'M']
+  modelled_default <- modelled_default[variable == 2 & model == 'model3',cd4_factor := 'E']
+  modelled_default <- modelled_default[variable == 20 & model == 'model3',cd4_factor := 'F']
+  modelled_default <- modelled_default[variable == 40 & model == 'model3',cd4_factor := 'G']
+  modelled_default <- modelled_default[variable == 'onart',cd4_factor := 'G']
+  modelled_default <- modelled_default[variable == 'startart',cd4_factor := 'F']
+  setnames(modelled_default, 'type', 'tt')
+  modelled_default <- modelled_default[!is.na(cd4_factor),]
+  modelled_default[,study_label := 'Modelled: Former']
+  modelled_default[,type := paste0(cd4_factor, '_', ifelse(tt == 'peri', 1, 2))]
+  modelled_default[,median := quantile(value, 0.5), by = 'type']
+  modelled_default[,lower := quantile(value, 0.025), by = 'type']
+  modelled_default[,upper := quantile(value, 0.975), by = 'type']
+  modelled_default <- modelled_default[!(model == 'model1' & cd4_factor == 'E')]
+  modelled_default <- modelled_default[!(model == 'model1' & cd4_factor == 'F')]
+  modelled_default <- modelled_default[!(model == 'model1' & cd4_factor == 'G')]
+  ##we don't put in these old modelled estimates because the data hadn't been extracted this way
+  modelled_default <- modelled_default[model %in%  c('model2', 'model4'),]
+  
+  dt <- rbind(dt[,.(model, tt, cd4_factor, med = plogis(median), 
+                    lower = plogis(lower), upper = plogis(upper), study_label, type)], 
+              data_default_wa[,.(model, tt, cd4_factor, med, lower, upper, study_label, type)], 
+              data_default[,.(model = 'model1', tt, cd4_factor, med = median, 
+                              lower = NA, upper = NA, study_label = 'Median: Former', type)], 
+              data_wa[,.(model, tt, cd4_factor,  med, upper, lower, study_label, type)],
+              modelled_default[,.(model, tt, cd4_factor,  med = plogis(median), 
+                                  lower = plogis(lower), upper = plogis(upper),  study_label, type)])
+  dt <- dt[!is.na(med)]
+  dt <- unique(dt)
+  
+  diamond_test <- dt
+  diamond_test[tt == 1, tt:='peri']
+  diamond_test[tt == 2, tt := 'bf']
+  diamond_test <- diamond_test[,.(level_0 = model, level_1 = tt, level_2 = cd4_factor, study_label, med, lower, upper)]
+  map <- fread('./naming_map.csv')
+  map[,level_2 := unlist(lapply(unlist(lapply(map$type, strsplit, split = '_'), recursive = F), '[[', 1))]
+  diamond <- merge(map, diamond_test, by.x = c('tt', 'level_2'), by.y = c('level_1', 'level_2'), all.y = T)
+  
+  diamond <- diamond[,.(level_0, level_1 = tt, level_2 = name, study_label,
+                        med = med * 100, lower = lower * 100, upper = upper* 100)]
+  diamond[lower < 0, lower := 0]
+  diamond[level_2 == 'Infection',formatted_pred := paste0(sprintf("%.1f",med), ' (', 
+                                                          sprintf("%.1f",lower ), ', ',
+                                                          sprintf("%.1f",upper), ')')]
+  
+  diamond[ level_1 == 'peri' & level_2 != 'Infection',formatted_pred := paste0(sprintf("%.1f",med), ' (', 
+                                                                               sprintf("%.1f",lower), ', ',
+                                                                               sprintf("%.1f",upper), ')')]
+  
+  diamond[level_1 == 'bf'& level_2 != 'Infection',formatted_pred := paste0(sprintf("%.2f",med), ' (', 
+                                                                           sprintf("%.2f",lower), ', ',
+                                                                           sprintf("%.2f",upper), ')')]
+  diamond[level_0 == 'model1' & is.na(lower)  & level_1 =='bf', formatted_pred := sprintf("%.2f",med)]
+  diamond[level_0 == 'model1' & is.na(lower) & level_1 =='peri', formatted_pred := sprintf("%.1f",med)]
+  
+  
+  diamond <- rbind(diamond, data.table(
+    level_0 = 'model1', level_1 = 'bf', 
+    level_2 = c('CD4 midpoint >350', "CD4 midpoint [200-350]", 
+                "CD4 midpoint [200-350]", "CD4 midpoint [200-350]"),
+    study_label = c('Weighted average: Former',
+                    'Weighted average: Former',
+                    'Median: Former',
+                    'Weighted average: Updated'), 
+    med = '', lower  = '', upper = '',
+    formatted_pred = c('Missing N',rep('No studies',3))))
+  
+  diamond$study_label <- factor(diamond$study_label, levels = c('Median: Former',
+                                                                'Weighted average: Former', 
+                                                                'Modelled: Former', 
+                                                                'Weighted average: Updated', 
+                                                                'Modelled: Updated'))
+  
+  diamond[,y := as.integer(fct_rev(study_label))]
+  
+  expand_dim <- data.table(name = c('lwr', 'prop', 'upr', 'prop2'), 
+                           y_scalar = c(0,0.15,0,-0.15),
+                           y = rep(seq(1:5), each = 4))
+  
+  
+  dia <- merge(diamond, expand_dim, by = c('y'), allow.cartesian = T)
+  dia[,y := y + y_scalar]
+  dia[name %in% c('prop', 'prop2'),x := med]
+  dia[name %in% c('lwr'),x := lower]
+  dia[name %in% c('upr'),x := upper]
+  dia <- dia[,.(level_0,level_1, level_2, study_label, left_lab = '', name, y, x, formatted_pred, sr_default = '',
+                sr_2019 = '', sr_2024 = '')]
+  dia[study_label %in% c('Modelled: Former', 'Weighted average: Former','Median: Former'), sr_default := 'Estimate']
+  dia[study_label %in% c('Modelled: Updated', 'Weighted average: Updated'), sr_2024 := 'Estimate']
+  
+  dia[level_2 == 'CD4 midpoint [0-200)' & study_label == 'Modelled', left_lab := 100]
+  dia[level_2 == 'CD4 midpoint [200-350]'& study_label == 'Modelled', left_lab := 275]
+  dia[level_2 == 'CD4 midpoint >350'& study_label == 'Modelled', left_lab := 500]
+  
+  dia[,id := paste0(level_0, level_1, level_2)]
+  
+  saveRDS(dia, paste0('./figures_tables/appendix/diamonds.RDS'))
+  
+}
+
+get_model_predictions <- function(ext = ''){
+  est <- readRDS('./model_output/spectrum_estimates_CI.RDS')
+  est <- data.table(melt(est))
+  est[,tt := type]
+  map <- fread('./data/public_data.csv')
+  map <- map[model2_pvt_sc != '',.(model2_pvt_sc, cd4_factor)] %>% unique()
+  est[variable == 100, type := ifelse(type == 'peri', 'A_1', 'A_2')]
+  est[variable == 275, type := ifelse(type == 'peri', 'B_1', 'B_2')]
+  est[variable == 500, type := ifelse(type == 'peri', 'C_1', 'C_2')]
+  
+  est <- merge(est, map, by.x = 'variable', by.y = 'model2_pvt_sc', all.x = T)
+  est[!is.na(cd4_factor), type := ifelse(type == 'peri', paste0(cd4_factor, '_', 1), paste0(cd4_factor, '_', 2))]
+  est[variable == 2, type := 'E_1']
+  est[variable == 20, type := 'F_1']
+  est[variable == 40, type := 'G_1']
+  est[variable == 'onart', type := 'G_2']
+  est[variable == 'startart', type := 'F_2']
+  est <- dcast(est[,.(variable, type, tt, model, variable.1, value)], 
+               variable + type + tt +  model ~ variable.1, value.var = 'value')
+  mod <- est[,.(variable, type, tt, predictions = (median), 
+                lower = (lower), upper = (upper), model)]
+  
+  if(ext == ''){
+    mod[,studlab := 'Modelled']
+  }else{
+    mod[,studlab := 'Default']
+  }
+  
+  mod[,label := studlab]
+  mod[model == 'model1', cd4_mid := variable]
+  mod[model == 'model3', time_on_art_median := variable]
+  mod[model == 'model4' & variable == 'onart', time_on_art_median := 40]
+  mod[model == 'model4' & variable == 'startart', time_on_art_median := 20]
+  mod[,variable := NULL]
+  
+  
+  return(mod)
+}
+
+get_predictions <- function(model_name, study_data){
+  if(model_name == 'model1'){
+    model <- readRDS(paste0('./model_output/model_1.RDS'))
+  }
+  if(model_name == 'model2'){
+    model <- readRDS(paste0('./model_output/model_2.RDS'))
+  }
+  if(model_name == 'model3'){
+    model <- readRDS(paste0('./model_output/model_3.RDS'))
+  }
+  if(model_name == 'model4'){
+    model <- readRDS(paste0('./model_output/model_4.RDS'))
+  }
+  
+  stud_cov = predict(model, newdata = study_data, cov.fit = T)$cov.fit
+  stud_cov <- mvtnorm::rmvnorm(3000, mean = predict(model, study_data), sigma = stud_cov)
+  stud_cov <- data.table(stud_cov)[,draw := 1:3000]
+  stud_cov <- melt(stud_cov, id.vars = 'draw')
+  stud_cov[,value := plogis(value)]
+  stud_cov <- stud_cov[,.(predictions = median(value), lower = quantile(value, 0.025), upper = quantile(value, 0.975)), by = 'variable']
+  stud_cov <- stud_cov[,.(predictions, lower, upper, id = gsub(pattern = 'V', replacement = '', variable))]
+  stud_cov[,id := study_data$id]
+  
+  preds <- merge(stud_cov, study_data, by = 'id')
+  return(preds)
+  
+}
+
+prep_forest_plot_data <- function(){
+  data <- fread(paste0('./data/public_data.csv'))
+  data[,studlab := paste0(author, '_', study_year)]
+  data[,id := 1:nrow(data)]
+  data[,NEW_2024 := ifelse(NEW_2024 == 'Y', 'Yes', 'No')]
+  data[inferred_ART_weeks < 5, model2_pvt_sc := 'less_four']
+  data[inferred_ART_weeks >4 & inferred_ART_weeks < 40, model2_pvt_sc := 'more_four']
+  data[inferred_ART_weeks == 40, model2_pvt_sc := 'pre_conception']
+  data[,weighted_prop := weighted.mean(event.e/ n.e, n.e), by = c('tt', 'model2_pvt_sc')]
+  data[,cd4_mid := (cd4_mid - 500) / 100]
+  data[,time_on_art_median := inferred_ART_weeks - 20]
+  data[,late_start := ifelse(inferred_ART_weeks < 5, T, F)]
+  data[,pvt_type := paste0(model2_pvt_sc, '_', tt)]
+  data[,on_art := ifelse(inferred_ART_weeks == 40, T, F)]
+  
+  mod1 <- get_predictions(model_name = 'model1', study_data = data[model == 'model1'])
+  mod2 <- get_predictions(model_name = 'model2', study_data = data[model == 'model2'])
+  mod3 <- get_predictions(model_name = 'model3', study_data = data[model == 'model3'])
+  mod4 <- get_predictions(model_name = 'model4', study_data = data[model == 'model4'])
+  dt <- rbind(mod1, mod2, mod3, mod4)
+  dt[!is.na(cd4_mid), cd4_mid := (cd4_mid + 5) * 100]
+  dt[!is.na(time_on_art_median), time_on_art_median := (time_on_art_median + 20)]
+  
+  stud_include <- fread(paste0('./data/studies_included_by_analysis_public.csv'))
+  stud_include <- stud_include[,.(studlab = paste0(author, '_', study_year), 
+                                  cd4_factor, tt = ifelse(type == 1, 'peri', 'bf'),
+                                  type = paste0(cd4_factor, '_', type),
+                                  study_year,
+                                  `Default`  = default, 
+                                  `2019 SR` = sr_2019,
+                                  `2024\nmethods update` = update_2024,
+                                  `2024\nSR update` = SR_2024,
+                                  reported_prop, 
+                                  lower_SI = lower, 
+                                  upper_SI = upper,
+                                  N_SI = n.e,
+                                  cd4_mid_SI = cd4_mid)]
+  stud_include <- unique(stud_include)
+  stud_include[`2024\nmethods update` != 'Included' & Default == '' & `2019 SR` == '', remove := T]
+  stud_include <- stud_include[is.na(remove),]
+  stud_include[,remove := NULL]
+  stud_include[lower_SI < 0, lower_SI := 0]
+  stud_include[upper_SI <0 , upper_SI := 0]
+  stud_include[type %in% c('A_1', 'B_1', 'C_1', 'A_2', 'B_2', 'C_2'), model := 'model1']
+  stud_include[type %in% c('D_1', 'D_2', 'H_1', 'H_2',
+                           'I_1', 'I_2', 'J_1', 'J_2',
+                           'K_1', 'K_2', 'L_2', 'M_2'), model := 'model2']
+  stud_include[type %in% c('E_1', 'F_1', 'G_1'), model := 'model3']
+  stud_include[type %in% c('E_2', 'F_2', 'G_2'), model := 'model4']
+  
+  
+  ##Switch to a shorter word
+  # stud_include[,Default := ifelse(Default == 'Included', 'X','')]
+  # stud_include[,`2019 SR` := ifelse(`2019 SR` == 'Included', 'X','')]
+  # stud_include[,`2024\nmethods update` := ifelse(`2024\nmethods update` == 'Included', 'X','')]
+  # stud_include[,`2024\nSR update` := ifelse(`2024\nSR update` == 'Included', 'X','')]
+  
+  dt <- merge(dt, stud_include, by = c('studlab', 'tt', 'cd4_factor', 'study_year', 'model'), all.x = T, all.y =T )
+  dt[`2024\nmethods update` != 'Included', predictions := reported_prop]
+  dt[`2024\nmethods update` != 'Included', n.e := N_SI]
+  dt[`2024\nmethods update` != 'Included', cd4_mid := cd4_mid_SI]
+  dt[`2024\nmethods update` != 'Included', lower := lower_SI]
+  dt[`2024\nmethods update` != 'Included', upper := upper_SI]
+  dt[,type := paste0(cd4_factor, ifelse(tt == 'peri','_1', '_2'))]
+  
+  dt <- dt[,.(id, studlab, author, study_year, model, type, cd4_factor, tt, cd4_mid, time_on_art_median, on_art, predictions, lower, upper, n.e, `Default`, `2019 SR`, `2024\nmethods update`, `2024\nSR update`, NEW_2024)]
+  
+  mod <- get_model_predictions()
+  pdt <- rbind(dt, mod, fill = T)
+  
+  pdt[grep('D_', type),level_1 := 'Infection']
+  pdt[grep('H_', type),level_1 := 'Option B']
+  pdt[grep('I_', type),level_1 := 'Option A']
+  pdt[grep('J_', type),level_1 := 'SDNVP']
+  pdt[grep('K_', type),level_1 := 'Dual ARV']
+  pdt[grep('L_', type),level_1 := 'SDNVP, >350']
+  pdt[grep('M_', type),level_1 := 'SDNVP, <350']
+  
+  
+  ##model1 levels
+  pdt[cd4_mid < 200 & model == 'model1', level_1 := 'CD4 midpoint [0-200)']
+  pdt[type %in% c('A_1', 'A_2'), level_1 := 'CD4 midpoint [0-200)']
+  pdt[cd4_mid > 199 & cd4_mid < 350& model == 'model1', level_1 := 'CD4 midpoint [200-350]']
+  pdt[type %in% c('B_1', 'B_2'), level_1 := 'CD4 midpoint [200-350]']
+  pdt[cd4_mid >= 350& model == 'model1', level_1 := 'CD4 midpoint >350']
+  pdt[type %in% c('C_1', 'C_2')& model == 'model1', level_1 := 'CD4 midpoint >350']
+  
+  ##model3 levels
+  pdt[time_on_art_median < 5, level_1 := 'ART initiated in last month']
+  pdt[time_on_art_median < 40 & time_on_art_median > 4, level_1 := 'ART initiated before last month']
+  pdt[type == 'F_1', level_1 :='ART initiated before last month']
+  pdt[time_on_art_median == 40, level_1 := 'ART initiated preconception']
+  pdt[type == 'G_1', level_1 := 'ART initiated preconception']
+  pdt[type == 'E_1' & is.na(level_1), level_1 := 'ART initiated in last month']
+  
+  ##model4 levels
+  pdt[on_art == TRUE, level_1 := 'ART initiated preconception']
+  pdt[type == 'G_2', level_1 := 'ART initiated preconception']
+  pdt[type == 'F_2', level_1 := 'ART initiated during pregnancy']
+  
+  missing_authors <- pdt[is.na(author) & studlab != 'Modelled',studlab]
+  missing_years <- unlist(lapply(strsplit(missing_authors, split = '_'), '[[', 2))
+  missing_authors <- unlist(lapply(strsplit(missing_authors, split = '_'), '[[', 1))
+  
+  pdt[is.na(author) & studlab != 'Modelled', author := missing_authors]
+  pdt[is.na(author) & studlab != 'Modelled', study_year := missing_years]
+  
+  pdt[is.na(label), label := paste0(stringr::str_to_title(author), ', ', study_year)]
+  setnames(pdt, 'label', 'study_label')
+  
+  pdt[,predictions := predictions * 100]
+  pdt[,lower := lower * 100]
+  pdt[,upper := upper * 100]
+  
+  pdt[model == 'model1' & tt == 'peri',formatted_pred := paste0(sprintf("%.1f",predictions), ' (', 
+                                                                sprintf("%.1f",lower ), ', ',
+                                                                sprintf("%.1f",upper), ')')]
+  
+  pdt[model == 'model1' & tt == 'bf',formatted_pred := paste0(sprintf("%.2f",predictions), ' (', 
+                                                              sprintf("%.2f",lower), ', ',
+                                                              sprintf("%.2f",upper), ')')]
+  #pdt[model == 'model1' & tt == 'bf' & is.na(n.e),formatted_pred := paste0(sprintf("%.2f",predictions))]
+  
+  pdt[model == 'model2' & level_1 == 'Infection',formatted_pred := paste0(sprintf("%.1f",predictions), ' (', 
+                                                                          sprintf("%.1f",lower ), ', ',
+                                                                          sprintf("%.1f",upper), ')')]
+  
+  pdt[model == 'model2' & tt == 'peri' & level_1 != 'Infection',formatted_pred := paste0(sprintf("%.1f",predictions), ' (', 
+                                                                                         sprintf("%.1f",lower), ', ',
+                                                                                         sprintf("%.1f",upper), ')')]
+  
+  pdt[model == 'model2' & tt == 'bf'& level_1 != 'Infection',formatted_pred := paste0(sprintf("%.2f",predictions), ' (', 
+                                                                                      sprintf("%.2f",lower), ', ',
+                                                                                      sprintf("%.2f",upper), ')')]
+  
+  
+  pdt[model == 'model3',formatted_pred := paste0(sprintf("%.2f",predictions), ' (', 
+                                                 sprintf("%.2f",lower), ', ',
+                                                 sprintf("%.2f",upper), ')')]
+  
+  pdt[model == 'model4',formatted_pred := paste0(sprintf("%.2f",predictions), ' (', 
+                                                 sprintf("%.2f",lower), ', ',
+                                                 sprintf("%.2f",upper), ')')]
+  
+  
+  
+  pdt[`2024\nmethods update`  == 'Included',color := 'black']
+  pdt[`2024\nmethods update`  == '',color := 'grey']
+  pdt[NEW_2024 == 'Yes',color := 'red']
+  pdt[studlab == 'Modelled', color := 'black']
+  pdt[,fontface := ifelse(study_label == 'Modelled', 'bold', 'plain')]
+  pdt[model == 'model1',left_lab := cd4_mid]
+  pdt[model == 'model3',left_lab := time_on_art_median]
+  
+  pdt <- pdt[,.(level_0 = model, level_1 = tt, level_2 = level_1, 
+                color, fontface, 
+                study_label, n.e, left_lab, 
+                est = predictions, lower, upper, formatted_pred, 
+                sr_default = Default, sr_2019 = `2019 SR`, sr_2024 = `2024\nmethods update`)]
+  
+  pdt[is.na(sr_default),sr_default := '']
+  pdt[is.na(sr_2019),sr_2019 := '']
+  pdt[is.na(sr_2024),sr_2024 := '']
+  
+  pdt[level_0 == 'model1', level_0 := 'Model 1']
+  pdt[level_0 == 'model2', level_0 := 'Model 2']
+  pdt[level_0 == 'model3', level_0 := 'Model 3']
+  pdt[level_0 == 'model4', level_0 := 'Model 4']
+  
+  write.csv(pdt, paste0('./input_for_forest_plots_public.csv'), row.names = F)
+  
+}
+
+get_level_2_plot <- function(dt_in, level_2_in, diamond = diamond_in){
   dt2 <- dt_in[level_2 == level_2_in]
   if(level_2_in == 'CD4 midpoint [200-350]' & nrow(dt2) == 0){
     tt <- 'bf'
@@ -400,66 +858,12 @@ get_level_2_plot <- function(dt_in, level_2_in){
   }
   dt2 <- rbind(header, dt2, fill = T)
   
-  diamond <- readRDS(paste0(output_data_dir, '/diamond/', model, '.RDS'))
   diamond <- diamond[level_2 == level_2_in & level_1 == tt,]
   diamond[,x := as.numeric(x)]
-  
-  if(model == 'Model 1'){
-    map <- data.table(study_label = sort(unique(diamond$study_label)), 
-                      study_label_new = c('Median: Former',
-                                          'Weighted average: Former',
-                                          'Weighted average: Updated',
-                                          'Modelled: Updated'))
-    diamond <- merge(diamond, map, by = 'study_label')
-    diamond[,study_label := study_label_new]
-    diamond[,study_label_new := NULL]
-    diamond$study_label <- factor(diamond$study_label, levels =  c('Median: Former',
-                                                                   'Weighted average: Former',
-                                                                   'Weighted average: Updated',
-                                                                   'Modelled: Updated'))
-    
-  }
-  if(model == 'Model 2'){
-    map <- data.table(study_label = sort(unique(diamond$study_label)), 
-                      study_label_new = c('Weighted average: Former',
-                                          'Modelled: Former',
-                                          'Weighted average: Updated',
-                                          'Modelled: Updated'))
-    diamond <- merge(diamond, map, by = 'study_label')
-    diamond[,study_label := study_label_new]
-    diamond[,study_label_new := NULL]
-    diamond$study_label <- factor(diamond$study_label, levels =  c('Weighted average: Former',
-                                                                   'Modelled: Former',
-                                                                   'Weighted average: Updated',
-                                                                   'Modelled: Updated'))
-  }
-  if(model == 'Model 3'){
-    map <- data.table(study_label = sort(unique(diamond$study_label)), 
-                      study_label_new = c('Weighted average: Former',
-                                          'Weighted average: Updated',
-                                          'Modelled: Updated'))
-    diamond <- merge(diamond, map, by = 'study_label')
-    diamond[,study_label := study_label_new]
-    diamond[,study_label_new := NULL]
-    diamond$study_label <- factor(diamond$study_label, levels =  c('Weighted average: Former',
-                                                                   'Weighted average: Updated',
-                                                                   'Modelled: Updated'))
-  }
-  if(model == 'Model 4'){
-    map <- data.table(study_label = sort(unique(diamond$study_label)), 
-                      study_label_new = c('Weighted average: Former',
-                                          'Modelled: Former',
-                                          'Weighted average: Updated',
-                                          'Modelled: Updated'))
-    diamond <- merge(diamond, map, by = 'study_label')
-    diamond[,study_label := study_label_new]
-    diamond[,study_label_new := NULL]
-    diamond$study_label <- factor(diamond$study_label, levels =  c('Weighted average: Former',
-                                                                   'Modelled: Former',
-                                                                   'Weighted average: Updated',
-                                                                   'Modelled: Updated'))
-  }
-  
+  diamond[study_label == 'Modelled: 2024',formatted_pred := dt2[study_label == 'Modelled', formatted_pred]]
+  diamond[study_label == 'Modelled: 2024' & name == 'upr',x := dt2[study_label == 'Modelled', upper]]
+  diamond[study_label == 'Modelled: 2024' & name == 'lwr',x := dt2[study_label == 'Modelled', lower]]
+  diamond[study_label == 'Modelled: 2024' & name %in% c('prop', 'prop2'),x := dt2[study_label == 'Modelled', est]]
   
   
   if(model %in% c('Model 1', 'Model 3', 'Model 4')){
@@ -567,7 +971,6 @@ get_level_2_plot <- function(dt_in, level_2_in){
     theme(plot.margin = unit(c(t=0,r=0,b=0.2,l=0), "cm")) +
     coord_cartesian(xlim = left_x)
   
-  needs_point <- diamond[study_label %in% c(diamond[is.na(x),study_label])]
   
   if(model %in% c('Model 3')){
     breaks_dia = c(1,2)
@@ -578,8 +981,18 @@ get_level_2_plot <- function(dt_in, level_2_in){
     ylim_dia =  c(0.55,4.45)
   }
   
+  if(any(diamond$y > 5)){
+    diamond[y >2.15, y:=y -1]
+  }
+  needs_point <- diamond[study_label %in% c(diamond[is.na(x),study_label])]
+  
+  if(max(diamond$y)-0.15 > length(unique(diamond$study_label))){
+    diamond[y >2.15, y:=y -1]
+  }
+  
   diamond_main <-  ggplot() +
-    geom_polygon(data = diamond, aes(x = x, y = y, group = study_label), fill = 'gray', color = 'black', size = 0.4) +
+    geom_polygon(data = diamond, aes(x = x, y = y, group = study_label), 
+                 fill = 'gray', color = 'black', size = 0.4) +
     geom_point(data = needs_point[name == 'prop'], aes(x = x, y = y - 0.15), size = 2, pch = 18) + 
     coord_cartesian(xlim =pc_mid_x, ylim = ylim_dia) +
     scale_y_continuous(breaks = breaks_dia) +
@@ -661,15 +1074,6 @@ get_level_2_plot <- function(dt_in, level_2_in){
                                     margin = margin(t = 0, r = 0, b = 0, l = 0)),
           plot.title.position = "plot")
   
-  # plot_level2 <- ggarrange(title, study_plot, diamond_plot, ncol = 1, 
-  #                          heights = c(0.03,1,dh), widths  = c(1,1)) 
-  # 
-  # 
-  # if(level_2_in == 'ART initiated in last month'){
-  #   plot_level2 <- ggarrange(title, study_plot, diamond_plot, ncol = 1, 
-  #                            heights = c(0.25,1,dh), widths  = c(1,1)) 
-  # }
-  
   plot_level2 
   return(plot_level2)
 }
@@ -710,10 +1114,8 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
     
     plot_full <- ggarrange(title, plot,  ncol = 1,
                            heights = c(0.04,1))
-    # dev.new(height = height_plot, width =7.5, noRStudioGD = T)
-    # plot_full
     
-    png(paste0(figure_dir, "/forest_plots/", level_0_in, '_', level_1_in, '.png'),
+    png(paste0("./figures_tables/appendix/forest_plots/", level_0_in, '_', level_1_in, '.png'),
         height = height_plot, width = 7.5, res = 900, units = 'in')
     print(plot_full)
     dev.off()
@@ -746,9 +1148,7 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
       
       plot_full <- ggarrange(title, plot,  ncol = 1,
                              heights = c(0.04 * title_fac,1))
-      # dev.new(height = height_plot, width =7.5, noRStudioGD = T)
-      # plot_full
-      # 
+      
       if(level_2_in == "SDNVP, >350"){
         level_2_in = 'sdnvp_high'
       }
@@ -756,7 +1156,7 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
         level_2_in = 'sdnvp_low'
       }
       
-      png(paste0(figure_dir, "/forest_plots/", level_0_in, '_', level_1_in, '_', level_2_in,'.png'),
+      png(paste0("./figures_tables/appendix/forest_plots/", level_0_in, '_', level_1_in, '_', level_2_in,'.png'),
           height = height_plot, width = 7.5, res = 900, units = 'in')
       print(plot_full)
       dev.off()
@@ -796,9 +1196,8 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
     if(height_plot > 11.5){
       height_plot = 11.5
     }
-    dev.new(height = height_plot , width =7.5 , noRStudioGD = T)
-    plot_full
-    png(paste0(figure_dir, "/forest_plots/", level_0_in, '_', level_1_in, '.png'),
+    
+    png(paste0("./figures_tables/appendix/forest_plots/", level_0_in, '_', level_1_in, '.png'),
         height = height_plot , width = 7.5, res = 900, units = 'in')
     print(plot_full)
     dev.off()
@@ -833,234 +1232,13 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
     
     plot_full <- ggarrange(title, plot,  ncol = 1,
                            heights = c(0.05,1))
-    # dev.new(height = height_plot, width =7.5, noRStudioGD = T)
-    # plot_full
     
-    png(paste0(figure_dir, "/forest_plots/", level_0_in, '_', level_1_in, '.png'),
+    png(paste0("./figures_tables/appendix/forest_plots/", level_0_in, '_', level_1_in, '.png'),
         height = height_plot, width = 7.5, res = 900, units = 'in')
     print(plot_full)
     dev.off()
     
     
   }
-  
-}
-
-format_spectrum_mtct <- function(spec_estimates){
-  mtct_format <- array(data = NA, dim = c(8,2), dimnames = list(cd4 = c(">500", "350-500", 
-                                                                        "250-349", "200-249",
-                                                                        "100-199",   "50-99",    
-                                                                        "<50", "INFECTION"),
-                                                                trans_type = c('perinatal', 'bf')))
-  
-  mtct_format[c('>500', '350-500'),'perinatal'] <- spec_estimates[type == 'peri' & variable == 500, median]
-  mtct_format[c('250-349', '200-249'),'perinatal'] <- spec_estimates[type == 'peri' & variable == 275, median]
-  mtct_format[c('100-199', '50-99', '<50'),'perinatal'] <- spec_estimates[type == 'peri' & variable == 100, median]
-  mtct_format[c('INFECTION'),'perinatal'] <- spec_estimates[type == 'peri' & variable == 'mat_sero', median]
-  
-  mtct_format[c('>500', '350-500'),'bf'] <- spec_estimates[type != 'peri' & variable == 500, median]
-  mtct_format[c('250-349', '200-249'),'bf'] <- spec_estimates[type != 'peri' & variable == 275, median]
-  mtct_format[c('100-199', '50-99', '<50'),'bf'] <- spec_estimates[type != 'peri' & variable == 100, median]
-  mtct_format[c('INFECTION'),'bf'] <- spec_estimates[type != 'peri' & variable == 'mat_sero', median]
-  
-  pmtct_format <- array(data = NA, dim = c(7,7,2), dimnames = list(cd4 = c(">500", "350-500", 
-                                                                           "250-349", "200-249",
-                                                                           "100-199",   "50-99",    
-                                                                           "<50"),
-                                                                   pmtct_reg = c("option A", "option B",                    
-                                                                                 "single dose nevirapine",
-                                                                                 "WHO 2006 dual ARV regimen",
-                                                                                 "ART before pregnancy",
-                                                                                 "ART >4 weeks before delivery",
-                                                                                 "ART <4 weeks before delivery"),
-                                                                   transmission_type = c('perinatal', 'bf')))
-  pmtct_format[,'option A','perinatal'] <- spec_estimates[type == 'peri' & variable == 'opt_a',median]
-  pmtct_format[,'option A','bf'] <- spec_estimates[type != 'peri' & variable == 'opt_a',median]
-  pmtct_format[,'option B','perinatal'] <- spec_estimates[type == 'peri' & variable == 'opt_b',median]
-  pmtct_format[,'option B','bf'] <- spec_estimates[type != 'peri' & variable == 'opt_b',median]
-  pmtct_format[,'WHO 2006 dual ARV regimen','perinatal'] <- spec_estimates[type == 'peri' & variable == 'dual_arv',median]
-  pmtct_format[,'WHO 2006 dual ARV regimen','bf'] <- spec_estimates[type != 'peri' & variable == 'dual_arv',median]
-  pmtct_format[,'single dose nevirapine','perinatal'] <- spec_estimates[type == 'peri' & variable == 'sdnvp',median]
-  pmtct_format[c('>500', '350-500'),'single dose nevirapine','bf'] <- spec_estimates[type != 'peri' & variable == 'sdnvp_gte350',median]
-  pmtct_format[c('250-349', '200-249', '100-199', '50-99', '<50'),'single dose nevirapine','bf'] <- spec_estimates[type != 'peri' & variable == 'sdnvp_lte350',median]
-  pmtct_format[,'ART before pregnancy','perinatal'] <- spec_estimates[type == 'peri' & variable == '40',median]
-  pmtct_format[,'ART before pregnancy','bf'] <- spec_estimates[type != 'peri' & variable == 'onart',median]
-  pmtct_format[,'ART >4 weeks before delivery','perinatal'] <- spec_estimates[type == 'peri' & variable == '20',median]
-  pmtct_format[,'ART >4 weeks before delivery','bf'] <- spec_estimates[type != 'peri' & variable == 'startart',median]
-  pmtct_format[,'ART <4 weeks before delivery','perinatal'] <- spec_estimates[type == 'peri' & variable == '2',median]
-  pmtct_format[,'ART <4 weeks before delivery','bf'] <- spec_estimates[type != 'peri' & variable == 'startart',median]
-  
-  return(list(mtct = mtct_format, pmtct_mtct = pmtct_format))
-  
-}
-
-
-get_diamond <- function(){
-  dt <- readRDS('./public_results/model_output/estimate_draws.RDS')
-  dt <- dt[variable == 100,cd4_factor := 'A']
-  dt <- dt[variable == 275,cd4_factor := 'B']
-  dt <- dt[variable == 500,cd4_factor := 'C']
-  dt <- dt[variable == 'mat_sero',cd4_factor := 'D']
-  dt <- dt[variable == 'dual_arv',cd4_factor := 'K']
-  dt <- dt[variable == 'opt_a',cd4_factor := 'I']
-  dt <- dt[variable == 'opt_b',cd4_factor := 'H']
-  dt <- dt[variable == 'sdnvp',cd4_factor := 'J']
-  dt <- dt[variable == 'sdnvp_gte350',cd4_factor := 'L']
-  dt <- dt[variable == 'sdnvp_lte350',cd4_factor := 'M']
-  dt <- dt[variable == 2 & model == 'model3',cd4_factor := 'E']
-  dt <- dt[variable == 20& model == 'model3',cd4_factor := 'F']
-  dt <- dt[variable == 40& model == 'model3',cd4_factor := 'G']
-  dt <- dt[variable == 'onart',cd4_factor := 'G']
-  dt <- dt[variable == 'startart',cd4_factor := 'F']
-  setnames(dt, 'type', 'tt')
-  dt[,study_label := 'Modelled: Updated']
-  dt[,type := paste0(cd4_factor, '_', ifelse(tt == 'peri', 1, 2))]
-  dt <- dt[!is.na(cd4_factor)]
-  dt[,median := quantile(value, 0.5), by = 'type']
-  dt[,lower := quantile(value, 0.025), by = 'type']
-  dt[,upper := quantile(value, 0.975), by = 'type']
-  dt <- dt[!(model == 'model1' & cd4_factor == 'E')]
-  dt <- dt[!(model == 'model1' & cd4_factor == 'F')]
-  dt <- dt[!(model == 'model1' & cd4_factor == 'G')]
-  
-  
-  data <- fread(paste0(input_data_dir,'/public_data.csv'))
-  data[,type := paste0(cd4_factor, '_', ifelse(tt == 'peri', 1, 2))]
-  data_wa <- data[,.(model, cd4_factor, tt, type, med = weighted.mean(prop_infected, n.e), sum_n = sum(n.e)), by = 'type']
-  data_wa <- unique(data_wa)
-  confint <- DescTools::BinomCI(data_wa$med * data_wa$sum_n, n = data_wa$sum_n,  method = 'wilson')
-  data_wa[,lower := as.vector(confint[,2])]
-  data_wa[,upper:=  as.vector(confint[,3])]
-  data_wa[lower < 0 ,lower := 0]
-  data_wa[,study_label := 'Weighted average: Updated']
-  
-  data_default <- fread(paste0(input_data_dir, '/default_values_public.csv'))
-  data_default[,tt := ifelse(tt == 'peri', 1, 2)]
-  data_default <- data_default[,.(model,
-                                  med = weighted.mean(event.e / n.e, n.e), 
-                                  sum_n = sum(n.e), type = paste0(cd4_factor, '_', tt)), by = c('tt', 'cd4_factor')]
-  data_default <- unique(data_default[!is.na(tt),.(model, tt, type, cd4_factor, med, sum_n)])
-  data_default[,study_label := 'Weighted average: Former']
-  confint <- DescTools::BinomCI(data_default$med * data_default$sum_n, n = data_default$sum_n,  method = 'wilson')
-  data_default[,lower := as.vector(confint[,2])]
-  data_default[,upper:= as.vector(confint[,3])]
-  data_default_wa <- data_default
-  
-  ##for model 1 we do median default rather than the modelled default
-  data_default <- fread(paste0(input_data_dir, '/default_values_public.csv'))
-  data_default[,tt := ifelse(tt == 'peri', 1, 2)]
-  data_default <- data_default[model== 'model1']
-  data_default[,prop := event.e / n.e]
-  data_default[is.na(n.e), prop := event.e] ## fix for c2
-  data_default <- unique(data_default[,.(model, median = median(prop)), by = c('tt', 'cd4_factor')])
-  data_default[,type := paste0(cd4_factor, '_', tt)]
-  
-  modelled_default <- readRDS('./public_results/model_output/old_estimate_draws.RDS')
-  modelled_default <- modelled_default[variable == 100,cd4_factor := 'A']
-  modelled_default <- modelled_default[variable == 275,cd4_factor := 'B']
-  modelled_default <- modelled_default[variable == 500,cd4_factor := 'C']
-  modelled_default <- modelled_default[variable == 'mat_sero',cd4_factor := 'D']
-  modelled_default <- modelled_default[variable == 'dual_arv',cd4_factor := 'K']
-  modelled_default <- modelled_default[variable == 'opt_a',cd4_factor := 'I']
-  modelled_default <- modelled_default[variable == 'opt_b',cd4_factor := 'H']
-  modelled_default <- modelled_default[variable == 'sdnvp',cd4_factor := 'J']
-  modelled_default <- modelled_default[variable == 'sdnvp_gte350',cd4_factor := 'L']
-  modelled_default <- modelled_default[variable == 'sdnvp_lte350',cd4_factor := 'M']
-  modelled_default <- modelled_default[variable == 2 & model == 'model3',cd4_factor := 'E']
-  modelled_default <- modelled_default[variable == 20 & model == 'model3',cd4_factor := 'F']
-  modelled_default <- modelled_default[variable == 40 & model == 'model3',cd4_factor := 'G']
-  modelled_default <- modelled_default[variable == 'onart',cd4_factor := 'G']
-  modelled_default <- modelled_default[variable == 'startart',cd4_factor := 'F']
-  setnames(modelled_default, 'type', 'tt')
-  modelled_default <- modelled_default[!is.na(cd4_factor),]
-  modelled_default[,study_label := 'Modelled: Former']
-  modelled_default[,type := paste0(cd4_factor, '_', ifelse(tt == 'peri', 1, 2))]
-  modelled_default[,median := quantile(value, 0.5), by = 'type']
-  modelled_default[,lower := quantile(value, 0.025), by = 'type']
-  modelled_default[,upper := quantile(value, 0.975), by = 'type']
-  modelled_default <- modelled_default[!(model == 'model1' & cd4_factor == 'E')]
-  modelled_default <- modelled_default[!(model == 'model1' & cd4_factor == 'F')]
-  modelled_default <- modelled_default[!(model == 'model1' & cd4_factor == 'G')]
-  ##we don't put in these old modelled estimates because the data hadn't been extracted this way
-  modelled_default <- modelled_default[model %in%  c('model2', 'model4'),]
-  
-  dt <- rbind(dt[,.(model, tt, cd4_factor, med = plogis(median), 
-                    lower = plogis(lower), upper = plogis(upper), study_label, type)], 
-              data_default_wa[,.(model, tt, cd4_factor, med, lower, upper, study_label, type)], 
-              data_default[,.(model = 'model1', tt, cd4_factor, med = median, 
-                              lower = NA, upper = NA, study_label = 'Median: Former', type)], 
-              data_wa[,.(model, tt, cd4_factor,  med, upper, lower, study_label, type)],
-              modelled_default[,.(model, tt, cd4_factor,  med = plogis(median), 
-                                  lower = plogis(lower), upper = plogis(upper),  study_label, type)])
-  dt <- dt[!is.na(med)]
-  dt <- unique(dt)
-  
-  diamond_test <- dt
-  diamond_test[tt == 1, tt:='peri']
-  diamond_test[tt == 2, tt := 'bf']
-  diamond_test <- diamond_test[,.(level_0 = model, level_1 = tt, level_2 = cd4_factor, study_label, med, lower, upper)]
-  map <- fread('./public_results/naming_map.csv')
-  map[,level_2 := unlist(lapply(unlist(lapply(map$type, strsplit, split = '_'), recursive = F), '[[', 1))]
-  diamond <- merge(map, diamond_test, by.x = c('tt', 'level_2'), by.y = c('level_1', 'level_2'), all.y = T)
-  
-  diamond <- diamond[,.(level_0, level_1 = tt, level_2 = name, study_label,
-                        med = med * 100, lower = lower * 100, upper = upper* 100)]
-  diamond[lower < 0, lower := 0]
-  diamond[level_2 == 'Infection',formatted_pred := paste0(sprintf("%.1f",med), ' (', 
-                                                          sprintf("%.1f",lower ), ', ',
-                                                          sprintf("%.1f",upper), ')')]
-  
-  diamond[ level_1 == 'peri' & level_2 != 'Infection',formatted_pred := paste0(sprintf("%.1f",med), ' (', 
-                                                                               sprintf("%.1f",lower), ', ',
-                                                                               sprintf("%.1f",upper), ')')]
-  
-  diamond[level_1 == 'bf'& level_2 != 'Infection',formatted_pred := paste0(sprintf("%.2f",med), ' (', 
-                                                                           sprintf("%.2f",lower), ', ',
-                                                                           sprintf("%.2f",upper), ')')]
-  diamond[level_0 == 'model1' & is.na(lower)  & level_1 =='bf', formatted_pred := sprintf("%.2f",med)]
-  diamond[level_0 == 'model1' & is.na(lower) & level_1 =='peri', formatted_pred := sprintf("%.1f",med)]
-  
-  
-  diamond <- rbind(diamond, data.table(
-    level_0 = 'model1', level_1 = 'bf', 
-    level_2 = c('CD4 midpoint >350', "CD4 midpoint [200-350]", 
-                "CD4 midpoint [200-350]", "CD4 midpoint [200-350]"),
-    study_label = c('Weighted average: Former',
-                    'Weighted average: Former',
-                    'Median: Former',
-                    'Weighted average: Updated'), 
-    med = '', lower  = '', upper = '',
-    formatted_pred = c('Missing N',rep('No studies',3))))
-  
-  diamond$study_label <- factor(diamond$study_label, levels = c('Median: Former',
-                                                                'Weighted average: Former', 
-                                                                'Modelled: Former', 
-                                                                'Weighted average: Updated', 
-                                                                'Modelled: Updated'))
-  
-  diamond[,y := as.integer(fct_rev(study_label))]
-  
-  expand_dim <- data.table(name = c('lwr', 'prop', 'upr', 'prop2'), 
-                           y_scalar = c(0,0.15,0,-0.15),
-                           y = rep(seq(1:5), each = 4))
-  
-  
-  dia <- merge(diamond, expand_dim, by = c('y'), allow.cartesian = T)
-  dia[,y := y + y_scalar]
-  dia[name %in% c('prop', 'prop2'),x := med]
-  dia[name %in% c('lwr'),x := lower]
-  dia[name %in% c('upr'),x := upper]
-  dia <- dia[,.(level_0,level_1, level_2, study_label, left_lab = '', name, y, x, formatted_pred, sr_default = '',
-                sr_2019 = '', sr_2024 = '')]
-  dia[study_label %in% c('Modelled: Former', 'Weighted average: Former','Median: Former'), sr_default := 'Estimate']
-  dia[study_label %in% c('Modelled: Updated', 'Weighted average: Updated'), sr_2024 := 'Estimate']
-  
-  dia[level_2 == 'CD4 midpoint [0-200)' & study_label == 'Modelled', left_lab := 100]
-  dia[level_2 == 'CD4 midpoint [200-350]'& study_label == 'Modelled', left_lab := 275]
-  dia[level_2 == 'CD4 midpoint >350'& study_label == 'Modelled', left_lab := 500]
-  
-  dia[,id := paste0(level_0, level_1, level_2)]
-  
-  saveRDS(dia, paste0('./public_results/figures_tables/appendix/diamonds.RDS'))
   
 }

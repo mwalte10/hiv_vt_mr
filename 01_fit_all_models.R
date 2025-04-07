@@ -7,13 +7,8 @@ library(stringr)
 library(tidyverse)
 library(tidybayes)
 library(glmmTMB)
-setwd('C:/Users/mwalters/OneDrive - Imperial College London/Papers/VT estimation/paper/')
-table_dir <- './tables/'
-figure_dir <- './figures/'
-input_data_dir <- './public_results/data/'
-output_data_dir <- './data/model_data/'
-results_dir <- './results/'
-source('./public_results/functions.R')
+input_data_dir <- './data/'
+source('./functions.R')
 
 set.seed(925)
 
@@ -29,7 +24,7 @@ mod1_data[,cd4_mid :=(cd4_mid - 500)/100]
 mod1_data$tt <- factor(mod1_data$tt, levels = c('peri', 'bf'))
 form_binom_mod1 <- cbind(event.e,(n.e-event.e)) ~ cd4_mid  + tt + cd4_mid * tt + (1 | studlab) + (1| id)
 model1  <- glmmTMB(form_binom_mod1, data = mod1_data, family = binomial())
-saveRDS(model1, './public_results/model_output/model_1.RDS')
+saveRDS(model1, './model_output/model_1.RDS')
 summary(model1)
 mod1_posterior <- get_posterior(model = model1)
 mod1_result_draws <- rbindlist(lapply(c(100,275,500), get_model1_estimates, posterior = mod1_posterior))
@@ -49,7 +44,7 @@ mod2_data <- data[model == 'model2']
 mod2_data[,pvt_type := paste0(model2_pvt_sc, '_', tt)]
 form_binom_mod2 <- cbind(event.e,(n.e-event.e)) ~ -1 + pvt_type + (1 | studlab)  + (1|id) 
 model2 <- glmmTMB(form_binom_mod2, data = mod2_data, family = binomial())
-saveRDS(model2, './public_results/model_output/model_2.RDS')
+saveRDS(model2, './model_output/model_2.RDS')
 summary(model2)
 mod2_posterior <- get_posterior(model = model2)
 mod2_result_draws <- melt(mod2_posterior, id.vars = c('draw'))
@@ -67,7 +62,7 @@ mod3_data[,time_on_art_median := inferred_ART_weeks - 20]
 mod3_data[,late_start := ifelse(inferred_ART_weeks < 4, 1, 0)]
 form_binom_mod3 <- cbind(event.e,(n.e-event.e)) ~  time_on_art_median + late_start + (1 | studlab) + (1 | id)
 model3 <- glmmTMB(form_binom_mod3, data = mod3_data, family = binomial())
-saveRDS(model3, './public_results/model_output/model_3.RDS')
+saveRDS(model3, './model_output/model_3.RDS')
 summary(model3)
 mod3_posterior <- get_posterior(model = model3)
 mod3_result_draws <- rbindlist(lapply(c(2,20,40), get_model3_estimates, posterior = mod3_posterior))
@@ -87,7 +82,7 @@ mod4_data[,on_art := ifelse(inferred_ART_weeks == 40,T,F)]
 mod4_data$on_art <- factor(mod4_data$on_art, levels = c(T, F))
 form_binom_mod4 <- cbind(event.e,(n.e-event.e)) ~ on_art + (1 | id) #+ (1 | studlab)
 model4 <- glmmTMB(form_binom_mod4, data = mod4_data, family = binomial)
-saveRDS(model4, './public_results/model_output/model_4.RDS')
+saveRDS(model4, './model_output/model_4.RDS')
 summary(model4)
 mod4_posterior <- get_posterior(model = model4)
 mod4_result_draws <- get_model4_estimates(posterior = mod4_posterior)
@@ -153,20 +148,20 @@ draws <- rbind(mod1_result_draws[,model := 'model1'],
                mod2_result_draws[,model := 'model2'],
                mod3_result_draws[,model := 'model3'],
                mod4_result_draws[,model := 'model4'])
-saveRDS(draws, './public_results/model_output/estimate_draws.RDS')
+saveRDS(draws, './model_output/estimate_draws.RDS')
 
 draws <- rbind(mod1_old_result_draws[,model := 'model1'],
                mod2_old_result_draws[,model := 'model2'],
                mod3_old_result_draws[,model := 'model3'],
                mod4_old_result_draws[,model := 'model4'])
-saveRDS(draws, './public_results/model_output/old_estimate_draws.RDS')
+saveRDS(draws, './model_output/old_estimate_draws.RDS')
 
 vt_parms_spec_draws <- rbind(draws[model == 'model1' & variable %in% c(100,275,500),],
                              draws[model == 'model2',],
                              draws[model == 'model3' & variable %in% c(2,20,40),],
                              draws[model == 'model4',])
 vt_parms_spec_draws[,value := plogis(value)]
-saveRDS(vt_parms_spec_draws, './public_results/model_output/spec_draws.RDS')
+saveRDS(vt_parms_spec_draws, './model_output/spec_draws.RDS')
 
 spec_estimates <- rbind(mod1_result_summary[,model := 'model1'],
                         mod2_result_summary[,model := 'model2'],
@@ -177,15 +172,15 @@ spec_estimates <- spec_estimates[,.(type, variable, model, median = plogis(media
                                     upper = plogis(upper))]
 spec_estimates[type == 'peri',formatted_pred := paste0(round(median*100, 1), ' (', round(lower*100 , 1), ', ',round(upper*100,1), ')')]
 spec_estimates[type != 'peri',formatted_pred := paste0(round(median*100, 2), ' (', round(lower*100 , 2), ', ',round(upper*100,2), ')')]
-saveRDS(spec_estimates, './public_results/model_output/spectrum_estimates_CI.RDS')
+saveRDS(spec_estimates, './model_output/spectrum_estimates_CI.RDS')
 spec_estimates <- format_spectrum_mtct(spec_estimates)
-saveRDS(spec_estimates, './public_results/model_output/spectrum_estimates.RDS')
+saveRDS(spec_estimates, './model_output/spectrum_estimates.RDS')
 
 posterior_estimates <- rbind(melt(mod1_posterior, id.vars = 'draw')[,model := 'model1'],
                              melt(mod2_posterior, id.vars = 'draw')[,model := 'model2'],
                              melt(mod3_posterior, id.vars = 'draw')[,model := 'model3'],
                              melt(mod4_posterior, id.vars = 'draw')[,model := 'model4'])
-saveRDS(posterior_estimates, './public_results/model_output/posterior_estimates.RDS')
+saveRDS(posterior_estimates, './model_output/posterior_estimates.RDS')
 
 
 model_table <- posterior_estimates
@@ -200,12 +195,12 @@ model_table <- melt(model_table, id.vars = c('variable', 'model', 'variable.1'))
 model_table <- dcast(model_table, variable + model + variable.2 ~ variable.1, value.var = 'value')
 model_table <- model_table[,value := paste0(median, ' (', lower, ', ', upper, ')')]
 model_table <- dcast(model_table[,.(variable, model, variable.2, value)], model + variable ~ variable.2, value.var = 'value')
-saveRDS(model_table, './public_results/model_output/regression_table.RDS')
+saveRDS(model_table, './model_output/regression_table.RDS')
 
 ################################################################################
 ##Treatment type analysis
 ################################################################################
-data <- fread('./public_results/data/public_data_assigned_trt.csv')
+data <- fread('./data/public_data_assigned_trt.csv')
 data[,time_on_art_median := time_on_art_median - 20]
 data[,late_start := ifelse((time_on_art_median + 20) < 4, 1, 0)]
 data$class <- factor(data$class, levels = c('NNRTI', 'INSTI', 'PI', 'misc_reg'))
@@ -216,18 +211,18 @@ form_binom_mod3_art <- cbind(event.e,(n.e-event.e)) ~  time_on_art_median + late
 model3_art <- glmmTMB(form_binom_mod3_art, data = data, family = binomial())
 summary(model3_art)
 posterior_mod3_art <- get_posterior(model3_art)
-saveRDS(posterior_mod3_art, './public_results/model_output/posterior_draws_mod3_art.RDS')
+saveRDS(posterior_mod3_art, './model_output/posterior_draws_mod3_art.RDS')
 
 form_binom_mod3_art_region <- cbind(event.e,(n.e-event.e)) ~  time_on_art_median + late_start + class + loc + (1 | studlab) + (1 | id)
 model3_art_region <- glmmTMB(form_binom_mod3_art_region, data = data, family = binomial())
 summary(model3_art_region)
 posterior_mod3_art_region <- get_posterior(model3_art_region)
-saveRDS(posterior_mod3_art_region, './public_results/model_output/posterior_draws_mod3_art_region.RDS')
+saveRDS(posterior_mod3_art_region, './model_output/posterior_draws_mod3_art_region.RDS')
 
 ################################################################################
 ##Viral load suppression analysis
 ################################################################################
-data <- fread('./public_results/data/public_data_assigned_trt.csv')
+data <- fread('./data/public_data_assigned_trt.csv')
 data[,time_on_art_median := time_on_art_median - 20]
 data[,late_start := ifelse((time_on_art_median + 20) < 4, 1, 0)]
 data$class <- factor(data$class, levels = c('NNRTI', 'INSTI', 'PI', 'misc_reg'))
@@ -242,4 +237,4 @@ form_binom_vls <- cbind(n_vls,(n.e-n_vls)) ~  class + time + class * time + (1 |
 model_time_vls <- glmmTMB(form_binom_vls, data = data_vls, family = binomial())
 summary(model_time_vls)
 posterior_vls <- get_posterior(model_time_vls)
-saveRDS(posterior_vls, './public_results/model_output/posterior_draws_vls.RDS')
+saveRDS(posterior_vls, './model_output/posterior_draws_vls.RDS')

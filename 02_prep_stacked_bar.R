@@ -12,20 +12,19 @@ library(data.table)
 library(ggplot2)
 library(tidyverse)
 library(grid)
-devtools::load_all('C:/Users/mwalters/frogger/') ## Must be on mkw_spec_2024
-source('C:/Users/mwalters/frogger//scripts/spectrum_inputs_paeds.R')
-source('C:/Users/mwalters/frogger//scripts/read_spectrum.R')
-source('C:/Users/mwalters/frogger/tests/testthat/helper-child-model.R')
-source('./public_results/functions.R')
 
-spec_file_dir <- './public_results/data/spectrum_files/'
+##frogger should be loaded from https://doi.org/10.5281/zenodo.15166687
+library(frogger)
+source('./functions.R')
+
+spec_file_dir <- './data/spectrum_files/'
 spec_files <- list.files(paste0(spec_file_dir, '/pjnz/'), full.names = T)
 
 ###############################################################################
 ##Prepare Spectrum files
 ###############################################################################
 ##these take a while to run, so if they already exist don't rerun
-if(!file.exists('./public_results/data/spectrum_files/proj/Rwanda.RDS')){
+if(!file.exists('./data/spectrum_files/proj/Rwanda.RDS')){
   lapply(spec_files, prep_files)
 }
 

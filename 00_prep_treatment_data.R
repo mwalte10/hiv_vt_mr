@@ -7,12 +7,8 @@ library(stringr)
 library(tidyverse)
 library(tidybayes)
 library(glmmTMB)
-setwd('C:/Users/mwalters/OneDrive - Imperial College London/Papers/VT estimation/paper/')
-table_dir <- './tables/'
-figure_dir <- './figures/'
+##all directories relative to public_results
 input_data_dir <- './data/'
-output_data_dir <- './data/model_data/'
-results_dir <- './results/'
 source('./functions.R')
 
 set.seed(925)
@@ -46,7 +42,7 @@ data[regimen %in% c('RAL', 'DTG'), class := 'INSTI']
 data[regimen %in% c('misc_reg'), class := 'misc_reg']
 
 
-region_map <- fread('./public_results/data/region_map.csv')
+region_map <- fread('./data/region_map.csv')
 
 data$location <- tools::toTitleCase(data$location)
 data[,location := gsub('Ivory Coast', "Côte d'Ivoire", data$location)]
@@ -68,4 +64,4 @@ data[time_on_art_median %in% 7:20, tri := '2nd trimester']
 data[time_on_art_median %in% 21:39, tri := '1st trimester']
 data[time_on_art_median == 40, tri := 'Preconception']
 
-write.csv(data, './public_results/data/public_data_assigned_trt.csv', row.names = F)
+write.csv(data, './data/public_data_assigned_trt.csv', row.names = F)

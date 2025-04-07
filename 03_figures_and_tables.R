@@ -7,20 +7,17 @@ library(stringr)
 library(tidyverse)
 library(tidybayes)
 library(glmmTMB)
-setwd('C:/Users/mwalters/OneDrive - Imperial College London/Papers/VT estimation/paper/')
-table_dir <- './tables/'
-figure_dir <- './figures/'
-input_data_dir <- './public_results/data/'
+##all files paths should be directed towards the public_results directory
+input_data_dir <- './data/'
 output_data_dir <- './data/model_data/'
-results_dir <- './results/'
-source('./public_results/functions.R')
+source('./functions.R')
 set.seed(925)
 
 ###############################################################################
 ##Tables 1 and 2 
 ###############################################################################
 {
-  spec_estimates <- readRDS('./public_results/model_output/spectrum_estimates.RDS')
+  spec_estimates <- readRDS('./model_output/spectrum_estimates.RDS')
   spec_estimates <- melt(spec_estimates, id.vars = c('type', 'model', 'variable'))
   spec_estimates[,value := plogis(value)]
   spec_estimates[type == 'peri' & variable != 40, value_round := sprintf("%.1f", value*100)]
@@ -30,14 +27,14 @@ set.seed(925)
   spec_estimates <- dcast(spec_estimates, type + model + variable ~ variable.1, value.var = 'value_round')
   spec_estimates[,lab := paste0(median, ' (', lower, ', ', upper, ')')]  
   spec_estimates <- spec_estimates[,.(type, model, variable, lab)]
-  write.csv(spec_estimates, './public_results/figures_tables/tab_1_2.csv', row.names = F)
+  write.csv(spec_estimates, './figures_tables/tab_1_2.csv', row.names = F)
 }
 
 ###############################################################################
 ##Figure 2 (data and model results)
 ###############################################################################
 {
-  draws <- readRDS('./public_results/model_output/estimate_draws.RDS')
+  draws <- readRDS('./model_output/estimate_draws.RDS')
   data <- fread(paste0(input_data_dir,'/public_data.csv'))
   size_limits = c(0,5000)
   range_limits = c(0,5)
@@ -199,11 +196,11 @@ set.seed(925)
   w = 8.24
   h = 6
   
-  png(paste0('./public_results/figures_tables/figure_2.png'), width = w, height =h ,res = 900, units = 'in')
+  png(paste0('./figures_tables/figure_2.png'), width = w, height =h ,res = 900, units = 'in')
   grid.arrange(peri, bf, legend, nrow = 3, heights = c(1,1, 0.2))
   dev.off()
   
-  pdf(paste0('./public_results/figures_tables/figure_2.pdf'), width = w, height =h )
+  pdf(paste0('./figures_tables/figure_2.pdf'), width = w, height =h )
   grid.arrange(peri, bf, legend, nrow = 3, heights = c(1,1, 0.2))
   dev.off()
 }
@@ -212,10 +209,10 @@ set.seed(925)
 ##Figure 3 (stacked bar)
 ###############################################################################
 {
-  mwi <- fread(paste0('./public_results/data/spectrum_files/spectrum_format/inf_diff/Malawi.csv'))
-  drc <- fread(paste0('./public_results/data/spectrum_files/spectrum_format/inf_diff/Democratic Republic of the Congo.csv'))
-  bfa <- fread(paste0('./public_results/data/spectrum_files/spectrum_format/inf_diff/Burkina Faso.csv'))
-  rwa <- fread(paste0('./public_results/data/spectrum_files/spectrum_format/inf_diff/Rwanda.csv'))
+  mwi <- fread(paste0('./data/spectrum_files/spectrum_format/inf_diff/Malawi.csv'))
+  drc <- fread(paste0('./data/spectrum_files/spectrum_format/inf_diff/Democratic Republic of the Congo.csv'))
+  bfa <- fread(paste0('./data/spectrum_files/spectrum_format/inf_diff/Burkina Faso.csv'))
+  rwa <- fread(paste0('./data/spectrum_files/spectrum_format/inf_diff/Rwanda.csv'))
   
   dt <- rbind(mwi[,loc := 'Malawi'],
               drc[,loc := 'Democratic Republic of the Congo'],
@@ -384,20 +381,40 @@ set.seed(925)
   h = 5.9
   w = 8.27
   dev.new(noRStudioGD = T, width = w, height = h)
-  png(filename =paste0('./public_results/figures_tables/figure_3.png'), height = h, width = w, units = 'in', res = 900)
+  png(filename =paste0('./figures_tables/figure_3.png'), height = h, width = w, units = 'in', res = 900)
   final_plot
   dev.off()
   
-  pdf(paste0('./public_results/figures_tables/figure_3.pdf'), height = h, width = w)
+  pdf(paste0('./figures_tables/figure_3.pdf'), height = h, width = w)
   final_plot
   dev.off()
+}
+
+###############################################################################
+##Appendix Figures 3.2.1-3.2.15 (forest plots) 
+###############################################################################
+{
+  prep_forest_plot_data()
+  get_diamond()
+  pdt <- fread(paste0('./input_for_forest_plots_public.csv'))
+  diamond_in <- readRDS(paste0('./figures_tables/appendix/diamonds.RDS'))
+  fp_parms <- fread(paste0('./figures_tables/forest_plot_space_parms.csv'))
+  plot_fp(pdt = pdt, level_0_in = 'Model 1', level_1_in = 'peri')
+  plot_fp(pdt = pdt, level_0_in = 'Model 1', level_1_in = 'bf')
+  
+  ##for some reason these are only working in debug mode? 
+  plot_fp(pdt = pdt, level_0_in = 'Model 2', level_1_in = 'peri')
+  plot_fp(pdt = pdt, level_0_in = 'Model 2', level_1_in = 'bf')
+  
+  plot_fp(pdt = pdt, level_0_in = 'Model 3', level_1_in = 'peri')
+  plot_fp(pdt = pdt, level_0_in = 'Model 4', level_1_in = 'bf')
 }
 
 ###############################################################################
 ##Appendix table 4.1.1
 ###############################################################################
 {
-  posterior_estimates <- readRDS('./public_results/model_output/posterior_estimates.RDS')
+  posterior_estimates <- readRDS('./model_output/posterior_estimates.RDS')
   posterior_estimates <- posterior_estimates[,.(median = quantile(value, 0.5), 
                                                 lower = quantile(value, 0.025),
                                                 upper = quantile(value, 0.975)), by = c('variable', 'model')]
@@ -412,14 +429,14 @@ set.seed(925)
   posterior_estimates[, value := paste0(median, ' (', lower, ', ', upper, ')')]
   posterior_estimates <- dcast(posterior_estimates[,.(variable, model, variable.2, value)], variable + model ~ variable.2, value.var = 'value')
   posterior_estimates <- posterior_estimates[order(model),.(model, variable, value_round, or_round)]
-  write.csv(posterior_estimates, './public_results/figures_tables/appendix/tab_4_1_1.csv', row.names = F) 
+  write.csv(posterior_estimates, './figures_tables/appendix/tab_4_1_1.csv', row.names = F) 
 }
 
 ###############################################################################
 ##Appendix table 4.1.2
 ###############################################################################
 {
-  posterior_mod3_art <- readRDS('./public_results/model_output/posterior_draws_mod3_art.RDS')
+  posterior_mod3_art <- readRDS('./model_output/posterior_draws_mod3_art.RDS')
   posterior_mod3_art <- melt(posterior_mod3_art, id.vars = 'draw')
   mod3_art_posterior_draws <- posterior_mod3_art[,.(median = quantile(value, 0.5), 
                                                     lower = quantile(value, 0.025),
@@ -432,7 +449,7 @@ set.seed(925)
   mod3_art_posterior_draws[,value := paste0(median, ' (', lower, ', ', upper, ')')]
   mod3_art_posterior_draws <- mod3_art_posterior_draws[,.(variable, variable.2, value)]
   mod3_art_posterior_draws <- dcast(mod3_art_posterior_draws, variable ~ variable.2, value.var = 'value')
-  write.csv(mod3_art_posterior_draws, './public_results/figures_tables/appendix/tab_4_1_2.csv', row.names = F)
+  write.csv(mod3_art_posterior_draws, './figures_tables/appendix/tab_4_1_2.csv', row.names = F)
   
 }
 
@@ -440,7 +457,7 @@ set.seed(925)
 ##Appendix table 4.1.3
 ###############################################################################
 {
-  posterior_mod3_art_region <- readRDS('./public_results/model_output/posterior_draws_mod3_art_region.RDS')
+  posterior_mod3_art_region <- readRDS('./model_output/posterior_draws_mod3_art_region.RDS')
   posterior_mod3_art_region <- melt(posterior_mod3_art_region, id.vars = 'draw')
   mod3_art_region_posterior_draws <- posterior_mod3_art_region[,.(median = quantile(value, 0.5), 
                                                     lower = quantile(value, 0.025),
@@ -453,14 +470,14 @@ set.seed(925)
   mod3_art_region_posterior_draws[,value := paste0(median, ' (', lower, ', ', upper, ')')]
   mod3_art_region_posterior_draws <- mod3_art_region_posterior_draws[,.(variable, variable.2, value)]
   mod3_art_region_posterior_draws <- dcast(mod3_art_region_posterior_draws, variable ~ variable.2, value.var = 'value')
-  write.csv(mod3_art_region_posterior_draws, './public_results/figures_tables/appendix/tab_4_1_3.csv', row.names = F)
+  write.csv(mod3_art_region_posterior_draws, './figures_tables/appendix/tab_4_1_3.csv', row.names = F)
 }
 
 ###############################################################################
 ##Appendix table 4.1.4
 ###############################################################################
 {
-  posterior_mod_vls <- readRDS('./public_results/model_output/posterior_draws_vls.RDS')
+  posterior_mod_vls <- readRDS('./model_output/posterior_draws_vls.RDS')
   posterior_mod_vls <- melt(posterior_mod_vls, id.vars = 'draw')
   mod_vls_posterior_draws <- posterior_mod_vls[,.(median = quantile(value, 0.5), 
                                                                   lower = quantile(value, 0.025),
@@ -473,7 +490,7 @@ set.seed(925)
   mod_vls_posterior_draws[,value := paste0(median, ' (', lower, ', ', upper, ')')]
   mod_vls_posterior_draws <- mod_vls_posterior_draws[,.(variable, variable.2, value)]
   mod_vls_posterior_draws <- dcast(mod_vls_posterior_draws, variable ~ variable.2, value.var = 'value')
-  write.csv(mod_vls_posterior_draws, './public_results/figures_tables/appendix/tab_4_1_4.csv', row.names = F)
+  write.csv(mod_vls_posterior_draws, './figures_tables/appendix/tab_4_1_4.csv', row.names = F)
 }
 
 
@@ -561,7 +578,7 @@ set.seed(925)
   h = 3.5
   w = 6.24
   
-  png(paste0('./public_results/figures_tables/appendix/5_2_1.png'), height = h, width = w, res = 900, units = 'in')
+  png(paste0('./figures_tables/appendix/5_2_1.png'), height = h, width = w, res = 900, units = 'in')
   print(gg)
   dev.off()
 }
@@ -569,7 +586,7 @@ set.seed(925)
 ###############################################################################
 ##Appendix figures 6.1-6.16
 ###############################################################################
-spec_file_dir <- './public_results/spectrum_files/'
+spec_file_dir <- './spectrum_files/'
 spec_files <- list.files(paste0(spec_file_dir, '/pjnz/'), full.names = T)
 mapply(plot_country_results, rep(unlist(lapply(spec_files, eppasm::read_country)),4), year.x = rep(c(2000,2010,2015, 2023),each = 4))
 
@@ -616,7 +633,7 @@ mapply(plot_country_results, rep(unlist(lapply(spec_files, eppasm::read_country)
   
   h = 6
   w = 4.7
-  png(filename = paste0('./public_results/figures_tables/appendix/6_17.png'), width = w, height = h, units = 'in', res = 900)
+  png(filename = paste0('./figures_tables/appendix/6_17.png'), width = w, height = h, units = 'in', res = 900)
   tornado_plot  
   dev.off()
 }
