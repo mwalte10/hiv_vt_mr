@@ -1,0 +1,23 @@
+type,tt,name
+I_2,bf,Option A
+H_2,bf,Option B
+D_2,bf,Infection
+K_2,bf,Dual ARV
+L_2,bf,"SDNVP, >350"
+M_2,bf,"SDNVP, <350"
+D_1,peri,Infection
+H_1,peri,Option B
+K_1,peri,Dual ARV
+I_1,peri,Option A
+J_1,peri,SDNVP
+A_1,peri,CD4 midpoint [0-200)
+A_2,bf,CD4 midpoint [0-200)
+B_1,peri,CD4 midpoint [200-350]
+B_2,bf,CD4 midpoint [200-350]
+C_1,peri,CD4 midpoint >350
+C_2,bf,CD4 midpoint >350
+G_2,bf,ART initiated preconception
+F_2,bf,ART initiated during pregnancy
+E_1,peri,ART initiated in last month
+F_1,peri,ART initiated before last month
+G_1,peri,ART initiated preconception
