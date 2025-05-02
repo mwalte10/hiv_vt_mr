@@ -680,6 +680,7 @@ prep_forest_plot_data <- function(){
   
   stud_include <- fread(paste0('./data/studies_included_by_analysis_public.csv'))
   stud_include <- stud_include[,.(studlab = paste0(author, '_', study_year), 
+                                  app_ref = `Appendix reference`,
                                   cd4_factor, tt = ifelse(type == 1, 'peri', 'bf'),
                                   type = paste0(cd4_factor, '_', type),
                                   study_year,
@@ -720,7 +721,7 @@ prep_forest_plot_data <- function(){
   dt[`2024\nmethods update` != 'Included', upper := upper_SI]
   dt[,type := paste0(cd4_factor, ifelse(tt == 'peri','_1', '_2'))]
   
-  dt <- dt[,.(id, studlab, author, study_year, model, type, cd4_factor, tt, cd4_mid, time_on_art_median, on_art, predictions, lower, upper, n.e, `Default`, `2019 SR`, `2024\nmethods update`, `2024\nSR update`, NEW_2024)]
+  dt <- dt[,.(id, studlab, author, study_year, app_ref, model, type, cd4_factor, tt, cd4_mid, time_on_art_median, on_art, predictions, lower, upper, n.e, `Default`, `2019 SR`, `2024\nmethods update`, `2024\nSR update`, NEW_2024)]
   
   mod <- get_model_predictions()
   pdt <- rbind(dt, mod, fill = T)
@@ -762,7 +763,7 @@ prep_forest_plot_data <- function(){
   pdt[is.na(author) & studlab != 'Modelled', author := missing_authors]
   pdt[is.na(author) & studlab != 'Modelled', study_year := missing_years]
   
-  pdt[is.na(label), label := paste0(stringr::str_to_title(author), ', ', study_year)]
+  pdt[is.na(label), label := paste0("'",stringr::str_to_title(author), ', ', study_year, "'^", app_ref)]
   setnames(pdt, 'label', 'study_label')
   
   pdt[,predictions := predictions * 100]
@@ -811,7 +812,7 @@ prep_forest_plot_data <- function(){
   
   pdt <- pdt[,.(level_0 = model, level_1 = tt, level_2 = level_1, 
                 color, fontface, 
-                study_label, n.e, left_lab, 
+                study_label, n.e = round(n.e), left_lab, 
                 est = predictions, lower, upper, formatted_pred, 
                 sr_default = Default, sr_2019 = `2019 SR`, sr_2024 = `2024\nmethods update`)]
   
@@ -838,7 +839,7 @@ get_level_2_plot <- function(dt_in, level_2_in, diamond = diamond_in){
     model <-unique(dt2[,level_0]) 
   }
   
-  fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
+  #fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
   space_parms <- fp_parms[level_0 == model & level_1 == tt & level_2 == level_2_in,]
   
   
@@ -944,7 +945,7 @@ get_level_2_plot <- function(dt_in, level_2_in, diamond = diamond_in){
     scale_color_manual(values = cols) 
   
   left <- ggplot(data = dt2, aes(y = fct_rev(study_label))) +
-    geom_text(aes(x = 0,  label = save, col = color), hjust = 0, fontface ='bold', show.legend = F, size = text_size) +
+    geom_text(aes(x = 0,  label = save, col = color), hjust = 0, fontface ='bold', show.legend = F, size = text_size, parse = T) +
     geom_text(aes(x = n_x,  label = n.e, fontface = fontface, col = color), hjust = 0.5, show.legend = F, size = text_size) +
     geom_text(aes(x = left_lab_x,  label = left_lab, fontface = fontface, col = color), hjust = 0.5, show.legend = F, size = text_size) +
     scale_color_manual(values = cols)  +
@@ -1083,7 +1084,7 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
   dt_in = dt
   
   if(level_0_in == 'Model 1'){
-    fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
+   # fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
     space_parms <- fp_parms[level_0 == level_0_in  & level_1 == level_1_in,]
     
     cd4_lte200 <- get_level_2_plot(dt_in = dt, level_2_in = 'CD4 midpoint [0-200)')
@@ -1125,7 +1126,7 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
   
   if(level_0_in == 'Model 2'){
     for(level_2 in unique(dt$level_2)){
-      fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
+      #fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
       level_2_in = level_2
       space_parms <- fp_parms[level_0 == level_0_in  & level_1 == level_1_in & level_2 == level_2_in,]
       
@@ -1164,7 +1165,7 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
   }
   
   if(level_0_in == 'Model 3'){
-    fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
+   # fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
     space_parms <- fp_parms[level_0 == level_0_in  & level_1 == level_1_in,]
     
     ft <- get_level_2_plot(dt_in = dt, level_2_in = 'ART initiated in last month')
@@ -1206,7 +1207,7 @@ plot_fp <- function(pdt, level_0_in, level_1_in){
   }
   
   if(level_0_in == 'Model 4'){
-    fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
+   # fp_parms <- fread(paste0(figure_dir, '/forest_plot_space_parms.csv'))
     space_parms <- fp_parms[level_0 == level_0_in  & level_1 == level_1_in,]
     
     startart <- get_level_2_plot(dt_in = dt, level_2_in = "ART initiated during pregnancy" )

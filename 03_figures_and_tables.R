@@ -7,9 +7,12 @@ library(stringr)
 library(tidyverse)
 library(tidybayes)
 library(glmmTMB)
+library(patchwork)
+library(ggpubr)
 ##all files paths should be directed towards the public_results directory
 input_data_dir <- './data/'
 output_data_dir <- './data/model_data/'
+figure_dir <- './figures_tables/appendix/forest_plots/'
 source('./functions.R')
 set.seed(925)
 
@@ -398,11 +401,11 @@ set.seed(925)
   get_diamond()
   pdt <- fread(paste0('./input_for_forest_plots_public.csv'))
   diamond_in <- readRDS(paste0('./figures_tables/appendix/diamonds.RDS'))
-  fp_parms <- fread(paste0('./figures_tables/forest_plot_space_parms.csv'))
+  fp_parms <- fread(paste0('./figures_tables/forest_plot_space_parms_public.csv'))
   plot_fp(pdt = pdt, level_0_in = 'Model 1', level_1_in = 'peri')
   plot_fp(pdt = pdt, level_0_in = 'Model 1', level_1_in = 'bf')
   
-  ##for some reason these are only working in debug mode? 
+  ##this needs to be ran interactively
   plot_fp(pdt = pdt, level_0_in = 'Model 2', level_1_in = 'peri')
   plot_fp(pdt = pdt, level_0_in = 'Model 2', level_1_in = 'bf')
   
@@ -624,7 +627,7 @@ mapply(plot_country_results, rep(unlist(lapply(spec_files, eppasm::read_country)
       fill = 'Infection type'
     ) +
     scale_y_discrete(labels = scales::label_wrap(20)) + 
-    scale_fill_manual(values  =c('Perinatal' = '#0f86b6', 'Breastfeeding' = '#f5db37')) +
+    scale_fill_manual(values  =c('Perinatal' = '#0f86b6', 'Breastfeeding' =  wesanderson::wes_palette("Zissou1")[4])) +
     theme_bw() + 
     theme(legend.position = 'bottom') + 
     facet_wrap(~year, ncol = 1) + 
